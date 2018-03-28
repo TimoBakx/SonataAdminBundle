@@ -27,6 +27,7 @@ use Symfony\Bundle\FrameworkBundle\Validator\ConstraintValidatorFactory;
 use Symfony\Component\Config\Definition\Exception\InvalidConfigurationException;
 use Symfony\Component\Config\FileLocatorInterface;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
+use Symfony\Component\DependencyInjection\ServiceLocator;
 use Symfony\Component\EventDispatcher\EventDispatcher;
 use Symfony\Component\Form\FormFactoryInterface;
 use Symfony\Component\HttpFoundation\RequestStack;
@@ -300,6 +301,7 @@ class ExtensionCompilerPassTest extends TestCase
         ];
 
         $container = $this->getContainer();
+
         $this->extension->load([$config], $container);
 
         $extensionsPass = new ExtensionCompilerPass();
@@ -443,6 +445,11 @@ class ExtensionCompilerPassTest extends TestCase
             ->setClass($extensionClass)
             ->addTag('sonata.admin.extension', ['target' => 'sonata_news_admin'])
             ->addTag('sonata.admin.extension', ['target' => 'sonata_article_admin']);
+        $container
+            ->register('sonata.admin.template_registries')
+            ->setClass(ServiceLocator::class)
+            ->setArguments([[]])
+            ->addTag('container.service_locator');
 
         // Add definitions for sonata.templating service
         $container

@@ -20,6 +20,7 @@ use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Definition;
 use Symfony\Component\DependencyInjection\DefinitionDecorator;
 use Symfony\Component\DependencyInjection\Reference;
+use Symfony\Component\DependencyInjection\ServiceLocator;
 
 /**
  * Add all dependencies to the Admin class, this avoid to write too many lines
@@ -29,6 +30,11 @@ use Symfony\Component\DependencyInjection\Reference;
  */
 class AddDependencyCallsCompilerPass implements CompilerPassInterface
 {
+    /**
+     * @var Reference[] (serviceId => reference)
+     */
+    private $templateRegistries = [];
+
     public function process(ContainerBuilder $container)
     {
         // check if translator service exist
@@ -203,6 +209,10 @@ class AddDependencyCallsCompilerPass implements CompilerPassInterface
         $pool->addMethodCall('setAdminServiceIds', [$admins]);
         $pool->addMethodCall('setAdminGroups', [$groups]);
         $pool->addMethodCall('setAdminClasses', [$classes]);
+
+        $templateRegistries = $container->register('sonata.admin.template_registries', ServiceLocator::class);
+        $templateRegistries->addTag('container.service_locator');
+        $templateRegistries->setArguments([$this->templateRegistries]);
 
         $routeLoader = $container->getDefinition('sonata.admin.route_loader');
         $routeLoader->replaceArgument(1, $admins);
@@ -408,6 +418,8 @@ class AddDependencyCallsCompilerPass implements CompilerPassInterface
         }
 
         $definition->addMethodCall('setTemplateRegistry', [new Reference($templateRegistryId)]);
+
+        $this->templateRegistries[$templateRegistryId] = new Reference($templateRegistryId);
     }
 
     /**

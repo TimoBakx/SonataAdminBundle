@@ -12,8 +12,10 @@
 namespace Sonata\AdminBundle\Twig\Extension;
 
 use Sonata\AdminBundle\Admin\AdminInterface;
+use Psr\Container\ContainerExceptionInterface;
+use Psr\Container\ContainerInterface;
+use Sonata\AdminBundle\Admin\Pool;
 use Sonata\AdminBundle\Templating\TemplateRegistryInterface;
-use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\DependencyInjection\Exception\ServiceCircularReferenceException;
 use Symfony\Component\DependencyInjection\Exception\ServiceNotFoundException;
 use Twig\Extension\AbstractExtension;
@@ -29,12 +31,22 @@ final class TemplateRegistryExtension extends AbstractExtension
     /**
      * @var ContainerInterface
      */
-    private $container;
+    private $templateRegistries;
 
-    public function __construct(TemplateRegistryInterface $globalTemplateRegistry, ContainerInterface $container)
+    /**
+     * @var Pool
+     *
+     * NEXT_MAJOR: Remove this property
+     */
+    private $pool;
+
+    public function __construct(TemplateRegistryInterface $globalTemplateRegistry, ContainerInterface $templateRegistries, Pool $pool)
     {
         $this->globalTemplateRegistry = $globalTemplateRegistry;
-        $this->container = $container;
+        $this->templateRegistries = $templateRegistries;
+
+        // NEXT_MAJOR: Remove this line and the corresponding parameter
+        $this->pool = $pool;
     }
 
     public function getFunctions()
@@ -90,19 +102,24 @@ final class TemplateRegistryExtension extends AbstractExtension
      * @param string $adminCode
      *
      * @throws ServiceNotFoundException
-     * @throws ServiceCircularReferenceException
      *
      * @return TemplateRegistryInterface
      */
     private function getTemplateRegistry($adminCode)
     {
         $serviceId = $adminCode.'.template_registry';
-        $templateRegistry = $this->container->get($serviceId);
-        if ($templateRegistry instanceof TemplateRegistryInterface) {
-            return $templateRegistry;
+
+        try {
+            $templateRegistry = $this->templateRegistries->get($serviceId);
+        } catch (ContainerExceptionInterface $exception) {
+            throw new ServiceNotFoundException($serviceId, null, $exception);
         }
 
-        throw new ServiceNotFoundException($serviceId);
+        if (!$templateRegistry instanceof TemplateRegistryInterface) {
+            throw new ServiceNotFoundException($serviceId);
+        }
+
+        return $templateRegistry;
     }
 
     /**
@@ -117,7 +134,7 @@ final class TemplateRegistryExtension extends AbstractExtension
      */
     private function getAdmin($adminCode)
     {
-        $admin = $this->container->get($adminCode);
+        $admin = $this->pool->getAdminByAdminCode($adminCode);
         if ($admin instanceof AdminInterface) {
             return $admin;
         }

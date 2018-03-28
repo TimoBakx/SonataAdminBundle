@@ -12,13 +12,15 @@
 namespace Sonata\AdminBundle\Twig\Extension;
 
 use Doctrine\Common\Util\ClassUtils;
+use Psr\Container\ContainerExceptionInterface;
+use Psr\Container\ContainerInterface;
+use Psr\Container\NotFoundExceptionInterface;
 use Psr\Log\LoggerInterface;
 use Sonata\AdminBundle\Admin\AdminInterface;
 use Sonata\AdminBundle\Admin\FieldDescriptionInterface;
 use Sonata\AdminBundle\Admin\Pool;
 use Sonata\AdminBundle\Exception\NoValueException;
 use Sonata\AdminBundle\Templating\TemplateRegistryInterface;
-use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\DependencyInjection\Exception\ServiceCircularReferenceException;
 use Symfony\Component\DependencyInjection\Exception\ServiceNotFoundException;
 use Symfony\Component\Translation\TranslatorInterface;
@@ -587,12 +589,17 @@ EOT;
     private function getTemplateRegistry($adminCode)
     {
         $serviceId = $adminCode.'.template_registry';
-        $templateRegistry = $this->templateRegistries->get($serviceId);
 
-        if ($templateRegistry instanceof TemplateRegistryInterface) {
-            return $templateRegistry;
+        try {
+            $templateRegistry = $this->templateRegistries->get($serviceId);
+        } catch (ContainerExceptionInterface $exception) {
+            throw new ServiceNotFoundException($serviceId, null, $exception);
         }
 
-        throw new ServiceNotFoundException($serviceId);
+        if (!$templateRegistry instanceof TemplateRegistryInterface) {
+            throw new ServiceNotFoundException($serviceId);
+        }
+
+        return $templateRegistry;
     }
 }
